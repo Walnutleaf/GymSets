@@ -9,7 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./service-worker.js');
+            navigator.serviceWorker.register('https://walnutleaf.github.io/GymSets/service-worker.js');
         }
     </script>
     <style>
@@ -38,7 +38,30 @@
             transition: all 0.3s ease-out;
         }
         .swipe-area {
-            touch-action: pan-y;
+            touch-action: pan-x;
+            position: relative;
+            overflow: hidden;
+        }
+        .swipe-content {
+            transition: transform 0.3s ease;
+        }
+        .swipe-action {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            padding: 0 1rem;
+            color: white;
+            font-weight: bold;
+        }
+        .swipe-action.left {
+            left: 0;
+            background-color: #ef4444;
+        }
+        .swipe-action.right {
+            right: 0;
+            background-color: #10b981;
         }
     </style>
 </head>
@@ -73,9 +96,13 @@
             div.className = 'muscle-group glass p-4 rounded-2xl shadow-lg slide-enter';
             div.innerHTML = `
                 <h3 class="text-lg font-semibold mb-2">${muscle}</h3>
-                <div class="swipe-area flex items-center justify-between bg-white bg-opacity-20 rounded-lg p-2">
-                    <span class="text-sm">Swipe to add/remove sets</span>
-                    <span id="${muscle}-total" class="font-bold">0</span>
+                <div class="swipe-area bg-white bg-opacity-20 rounded-lg">
+                    <div class="swipe-action left">Remove</div>
+                    <div class="swipe-content flex items-center justify-between p-2">
+                        <span class="text-sm">Swipe to add/remove sets</span>
+                        <span id="${muscle}-total" class="font-bold">0</span>
+                    </div>
+                    <div class="swipe-action right">Add</div>
                 </div>
                 <p class="mt-2 text-sm">Sets: <span id="${muscle}-sets"></span></p>
             `;
@@ -129,19 +156,35 @@
             muscleGroupsContainer.appendChild(element);
             setTimeout(() => element.classList.remove('slide-enter'), 50 * index);
 
-            const hammertime = new Hammer(element.querySelector('.swipe-area'));
-            hammertime.on('swipeleft', function(ev) {
-                removeSet(muscle);
-            });
-            hammertime.on('swiperight', function(ev) {
-                addSet(muscle);
+            const swipeArea = element.querySelector('.swipe-area');
+            const swipeContent = swipeArea.querySelector('.swipe-content');
+            const hammertime = new Hammer(swipeArea);
+
+            hammertime.on('pan', function(ev) {
+                const pan = Math.min(Math.max(ev.deltaX, -100), 100);
+                swipeContent.style.transform = `translateX(${pan}px)`;
+                
+                if (ev.isFinal) {
+                    if (pan < -50) {
+                        removeSet(muscle);
+                    } else if (pan > 50) {
+                        addSet(muscle);
+                    }
+                    swipeContent.style.transform = '';
+                }
             });
         });
 
-        // Add swipe to refresh functionality
-        const bodyHammer = new Hammer(document.body);
-        bodyHammer.on('swipedown', function(ev) {
-            location.reload();
+        // Add pull to refresh functionality
+        let startY;
+        document.addEventListener('touchstart', e => {
+            startY = e.touches[0].pageY;
+        });
+        document.addEventListener('touchmove', e => {
+            const y = e.touches[0].pageY;
+            if (y - startY > 100 && window.scrollY === 0) {
+                location.reload();
+            }
         });
 
         updateUI();
