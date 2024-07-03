@@ -18,35 +18,48 @@
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
         }
         .muscle-group {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            transition: all 0.3s ease;
         }
         .muscle-group:active {
             transform: scale(0.98);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .slide-enter {
-            transform: translateX(100%);
+            transform: translateY(20px);
             opacity: 0;
         }
         .slide-enter-active {
-            transform: translateX(0);
+            transform: translateY(0);
             opacity: 1;
             transition: all 0.3s ease-out;
         }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans">
+<body class="text-white font-sans min-h-screen">
     <div class="container mx-auto px-4 py-8 max-w-md">
-        <h1 class="text-3xl font-bold mb-6 text-center text-indigo-600">Workout Set Tracker</h1>
+        <h1 class="text-3xl font-bold mb-6 text-center">Workout Set Tracker</h1>
+        
+        <div id="weeklyTotal" class="mb-8 p-4 glass rounded-2xl shadow-lg">
+            <h2 class="text-xl font-semibold mb-2">Weekly Total</h2>
+            <p id="totalSets" class="text-4xl font-bold"></p>
+        </div>
         
         <div id="muscleGroups" class="space-y-4 mb-8"></div>
-        
-        <div id="weeklyTotal" class="mt-8 p-4 bg-indigo-100 rounded-lg shadow-md">
-            <h2 class="text-xl font-semibold mb-2 text-indigo-800">Weekly Total</h2>
-            <p id="totalSets" class="text-2xl font-bold text-indigo-600"></p>
-        </div>
     </div>
 
     <script>
@@ -65,12 +78,12 @@
 
         function createMuscleGroupElement(muscle) {
             const div = document.createElement('div');
-            div.className = 'muscle-group bg-white p-4 rounded-lg shadow-md slide-enter';
+            div.className = 'muscle-group glass p-4 rounded-2xl shadow-lg slide-enter';
             div.innerHTML = `
                 <h3 class="text-lg font-semibold mb-2">${muscle}</h3>
                 <div class="flex items-center">
-                    <input type="number" id="${muscle}-sets" min="0" value="0" class="w-16 p-2 border rounded mr-2">
-                    <button data-muscle="${muscle}" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 transition duration-300">Add</button>
+                    <input type="number" id="${muscle}-sets" min="0" value="0" class="w-16 p-2 bg-white bg-opacity-20 rounded-l-lg text-center text-white placeholder-white::placeholder focus:outline-none focus:ring-2 focus:ring-white">
+                    <button data-muscle="${muscle}" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-r-lg hover:bg-opacity-30 transition duration-300 focus:outline-none focus:ring-2 focus:ring-white">Add</button>
                 </div>
                 <p class="mt-2">Total sets: <span id="${muscle}-total">0</span></p>
             `;
@@ -100,10 +113,10 @@
         }
 
         const muscleGroupsContainer = document.getElementById('muscleGroups');
-        muscleGroups.forEach(muscle => {
+        muscleGroups.forEach((muscle, index) => {
             const element = createMuscleGroupElement(muscle);
             muscleGroupsContainer.appendChild(element);
-            setTimeout(() => element.classList.remove('slide-enter'), 10);
+            setTimeout(() => element.classList.remove('slide-enter'), 50 * index);
         });
 
         muscleGroupsContainer.addEventListener('click', (e) => {
