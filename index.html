@@ -9,7 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js');
+            navigator.serviceWorker.register('./service-worker.js');
         }
     </script>
     <style>
@@ -28,9 +28,6 @@
         .muscle-group {
             transition: all 0.3s ease;
         }
-        .muscle-group:active {
-            transform: scale(0.98);
-        }
         .slide-enter {
             transform: translateY(20px);
             opacity: 0;
@@ -40,13 +37,8 @@
             opacity: 1;
             transition: all 0.3s ease-out;
         }
-        input[type="number"] {
-            -moz-appearance: textfield;
-        }
-        input::-webkit-outer-spin-button,
-        input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
+        .swipe-area {
+            touch-action: pan-y;
         }
     </style>
 </head>
@@ -81,11 +73,11 @@
             div.className = 'muscle-group glass p-4 rounded-2xl shadow-lg slide-enter';
             div.innerHTML = `
                 <h3 class="text-lg font-semibold mb-2">${muscle}</h3>
-                <div class="flex items-center">
-                    <input type="number" id="${muscle}-sets" min="0" value="0" class="w-16 p-2 bg-white bg-opacity-20 rounded-l-lg text-center text-white placeholder-white::placeholder focus:outline-none focus:ring-2 focus:ring-white">
-                    <button data-muscle="${muscle}" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-r-lg hover:bg-opacity-30 transition duration-300 focus:outline-none focus:ring-2 focus:ring-white">Add</button>
+                <div class="swipe-area flex items-center justify-between bg-white bg-opacity-20 rounded-lg p-2">
+                    <span class="text-sm">Swipe to add/remove sets</span>
+                    <span id="${muscle}-total" class="font-bold">0</span>
                 </div>
-                <p class="mt-2">Total sets: <span id="${muscle}-total">0</span></p>
+                <p class="mt-2 text-sm">Sets: <span id="${muscle}-sets"></span></p>
             `;
             return div;
         }
@@ -96,20 +88,39 @@
 
             muscleGroups.forEach(muscle => {
                 const totalElement = document.getElementById(`${muscle}-total`);
+                const setsElement = document.getElementById(`${muscle}-sets`);
                 const total = (workoutData[currentWeek] && workoutData[currentWeek][muscle]) || 0;
+                const sets = (workoutData[currentWeek] && workoutData[currentWeek][`${muscle}-sets`]) || [];
+                
                 totalElement.textContent = total;
+                setsElement.textContent = sets.join(', ');
                 weekTotal += total;
             });
 
             document.getElementById('totalSets').textContent = `${weekTotal} sets`;
         }
 
-        function addSet(muscle, sets) {
+        function addSet(muscle) {
             const currentWeek = getCurrentWeek();
             if (!workoutData[currentWeek]) workoutData[currentWeek] = {};
-            workoutData[currentWeek][muscle] = (workoutData[currentWeek][muscle] || 0) + sets;
+            if (!workoutData[currentWeek][muscle]) workoutData[currentWeek][muscle] = 0;
+            if (!workoutData[currentWeek][`${muscle}-sets`]) workoutData[currentWeek][`${muscle}-sets`] = [];
+            
+            workoutData[currentWeek][muscle]++;
+            workoutData[currentWeek][`${muscle}-sets`].push(1);
+            
             localStorage.setItem('workoutData', JSON.stringify(workoutData));
             updateUI();
+        }
+
+        function removeSet(muscle) {
+            const currentWeek = getCurrentWeek();
+            if (workoutData[currentWeek] && workoutData[currentWeek][muscle] > 0) {
+                workoutData[currentWeek][muscle]--;
+                workoutData[currentWeek][`${muscle}-sets`].pop();
+                localStorage.setItem('workoutData', JSON.stringify(workoutData));
+                updateUI();
+            }
         }
 
         const muscleGroupsContainer = document.getElementById('muscleGroups');
@@ -117,22 +128,19 @@
             const element = createMuscleGroupElement(muscle);
             muscleGroupsContainer.appendChild(element);
             setTimeout(() => element.classList.remove('slide-enter'), 50 * index);
-        });
 
-        muscleGroupsContainer.addEventListener('click', (e) => {
-            if (e.target.tagName === 'BUTTON') {
-                const muscle = e.target.getAttribute('data-muscle');
-                const sets = parseInt(document.getElementById(`${muscle}-sets`).value);
-                if (!isNaN(sets) && sets > 0) {
-                    addSet(muscle, sets);
-                    document.getElementById(`${muscle}-sets`).value = 0;
-                }
-            }
+            const hammertime = new Hammer(element.querySelector('.swipe-area'));
+            hammertime.on('swipeleft', function(ev) {
+                removeSet(muscle);
+            });
+            hammertime.on('swiperight', function(ev) {
+                addSet(muscle);
+            });
         });
 
         // Add swipe to refresh functionality
-        const hammertime = new Hammer(document.body);
-        hammertime.on('swipedown', function(ev) {
+        const bodyHammer = new Hammer(document.body);
+        bodyHammer.on('swipedown', function(ev) {
             location.reload();
         });
 
