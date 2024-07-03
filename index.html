@@ -6,10 +6,9 @@
     <title>Workout Set Tracker</title>
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('https://walnutleaf.github.io/GymSets/service-worker.js');
+            navigator.serviceWorker.register('/GymSets/service-worker.js');
         }
     </script>
     <style>
@@ -18,50 +17,28 @@
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-color: #121212;
         }
-        .glass {
-            background: rgba(255, 255, 255, 0.25);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-        }
-        .muscle-group {
+        .switch {
+            width: 60px;
+            height: 30px;
+            background-color: #2d3748;
+            border-radius: 15px;
+            padding: 2px;
             transition: all 0.3s ease;
         }
-        .slide-enter {
-            transform: translateY(20px);
-            opacity: 0;
-        }
-        .slide-enter-active {
-            transform: translateY(0);
-            opacity: 1;
-            transition: all 0.3s ease-out;
-        }
-        .swipe-area {
-            touch-action: pan-x;
-            position: relative;
-            overflow: hidden;
-        }
-        .swipe-content {
+        .switch-handle {
+            width: 26px;
+            height: 26px;
+            background-color: #ffffff;
+            border-radius: 50%;
             transition: transform 0.3s ease;
         }
-        .swipe-action {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            padding: 0 1rem;
-            color: white;
-            font-weight: bold;
+        .switch.active {
+            background-color: #4299e1;
         }
-        .swipe-action.left {
-            left: 0;
-            background-color: #ef4444;
-        }
-        .swipe-action.right {
-            right: 0;
-            background-color: #10b981;
+        .switch.active .switch-handle {
+            transform: translateX(30px);
         }
     </style>
 </head>
@@ -69,7 +46,7 @@
     <div class="container mx-auto px-4 py-8 max-w-md">
         <h1 class="text-3xl font-bold mb-6 text-center">Workout Set Tracker</h1>
         
-        <div id="weeklyTotal" class="mb-8 p-4 glass rounded-2xl shadow-lg">
+        <div id="weeklyTotal" class="mb-8 p-4 bg-gray-800 rounded-2xl shadow-lg">
             <h2 class="text-xl font-semibold mb-2">Weekly Total</h2>
             <p id="totalSets" class="text-4xl font-bold"></p>
         </div>
@@ -93,16 +70,17 @@
 
         function createMuscleGroupElement(muscle) {
             const div = document.createElement('div');
-            div.className = 'muscle-group glass p-4 rounded-2xl shadow-lg slide-enter';
+            div.className = 'muscle-group bg-gray-800 p-4 rounded-2xl shadow-lg';
             div.innerHTML = `
-                <h3 class="text-lg font-semibold mb-2">${muscle}</h3>
-                <div class="swipe-area bg-white bg-opacity-20 rounded-lg">
-                    <div class="swipe-action left">Remove</div>
-                    <div class="swipe-content flex items-center justify-between p-2">
-                        <span class="text-sm">Swipe to add/remove sets</span>
-                        <span id="${muscle}-total" class="font-bold">0</span>
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-lg font-semibold">${muscle}</h3>
+                    <span id="${muscle}-total" class="text-3xl font-bold">0</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm">Add Set</span>
+                    <div class="switch" id="${muscle}-switch">
+                        <div class="switch-handle"></div>
                     </div>
-                    <div class="swipe-action right">Add</div>
                 </div>
                 <p class="mt-2 text-sm">Sets: <span id="${muscle}-sets"></span></p>
             `;
@@ -140,38 +118,18 @@
             updateUI();
         }
 
-        function removeSet(muscle) {
-            const currentWeek = getCurrentWeek();
-            if (workoutData[currentWeek] && workoutData[currentWeek][muscle] > 0) {
-                workoutData[currentWeek][muscle]--;
-                workoutData[currentWeek][`${muscle}-sets`].pop();
-                localStorage.setItem('workoutData', JSON.stringify(workoutData));
-                updateUI();
-            }
-        }
-
         const muscleGroupsContainer = document.getElementById('muscleGroups');
-        muscleGroups.forEach((muscle, index) => {
+        muscleGroups.forEach((muscle) => {
             const element = createMuscleGroupElement(muscle);
             muscleGroupsContainer.appendChild(element);
-            setTimeout(() => element.classList.remove('slide-enter'), 50 * index);
 
-            const swipeArea = element.querySelector('.swipe-area');
-            const swipeContent = swipeArea.querySelector('.swipe-content');
-            const hammertime = new Hammer(swipeArea);
-
-            hammertime.on('pan', function(ev) {
-                const pan = Math.min(Math.max(ev.deltaX, -100), 100);
-                swipeContent.style.transform = `translateX(${pan}px)`;
-                
-                if (ev.isFinal) {
-                    if (pan < -50) {
-                        removeSet(muscle);
-                    } else if (pan > 50) {
-                        addSet(muscle);
-                    }
-                    swipeContent.style.transform = '';
-                }
+            const switchElement = element.querySelector('.switch');
+            switchElement.addEventListener('click', () => {
+                switchElement.classList.add('active');
+                addSet(muscle);
+                setTimeout(() => {
+                    switchElement.classList.remove('active');
+                }, 300);
             });
         });
 
