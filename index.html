@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workout Set Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js');
+        }
+    </script>
+    <style>
+        .grid-cols-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-6 text-center text-blue-600">Workout Set Tracker</h1>
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div>
+                <label for="muscle" class="block mb-2 font-semibold">Muscle Group:</label>
+                <input type="text" id="muscle" class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label for="sets" class="block mb-2 font-semibold">Number of Sets:</label>
+                <input type="number" id="sets" class="w-full p-2 border rounded">
+            </div>
+        </div>
+        <button id="addBtn" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition duration-300">Add Set</button>
+        <div id="weeklyData" class="mt-8"></div>
+    </div>
+
+    <script>
+        let workoutData = JSON.parse(localStorage.getItem('workoutData')) || {};
+
+        function getCurrentWeek() {
+            const now = new Date();
+            const startOfYear = new Date(now.getFullYear(), 0, 1);
+            const weekNumber = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+            return `Week ${weekNumber}, ${now.getFullYear()}`;
+        }
+
+        function updateUI() {
+            const weeklyDataDiv = document.getElementById('weeklyData');
+            weeklyDataDiv.innerHTML = '';
+            const currentWeek = getCurrentWeek();
+            
+            if (workoutData[currentWeek]) {
+                const weekDiv = document.createElement('div');
+                weekDiv.className = 'mb-4 p-4 bg-white rounded shadow';
+                weekDiv.innerHTML = `<h2 class="text-xl font-semibold mb-2">${currentWeek}</h2>`;
+                
+                for (const muscle in workoutData[currentWeek]) {
+                    weekDiv.innerHTML += `<p>${muscle}: ${workoutData[currentWeek][muscle]} sets</p>`;
+                }
+                
+                weeklyDataDiv.appendChild(weekDiv);
+            }
+        }
+
+        document.getElementById('addBtn').addEventListener('click', () => {
+            const muscle = document.getElementById('muscle').value.trim();
+            const sets = parseInt(document.getElementById('sets').value);
+            
+            if (muscle && !isNaN(sets)) {
+                const currentWeek = getCurrentWeek();
+                if (!workoutData[currentWeek]) workoutData[currentWeek] = {};
+                workoutData[currentWeek][muscle] = (workoutData[currentWeek][muscle] || 0) + sets;
+                
+                localStorage.setItem('workoutData', JSON.stringify(workoutData));
+                updateUI();
+                
+                document.getElementById('muscle').value = '';
+                document.getElementById('sets').value = '';
+            }
+        });
+
+        updateUI();
+    </script>
+</body>
+</html>
