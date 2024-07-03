@@ -6,10 +6,11 @@
     <title>Workout Set Tracker</title>
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('https://walnutleaf.github.io/GymSets/service-worker.js');
+            navigator.serviceWorker.register('service-worker.js');
         }
     </script>
     <style>
@@ -18,14 +19,16 @@
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
-            background-color: #121212;
+            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
         }
         .slide-container {
             position: relative;
             overflow: hidden;
+            height: 100px;
         }
         .slide-content {
             transition: transform 0.3s ease;
+            height: 100%;
         }
         .slide-action {
             position: absolute;
@@ -41,24 +44,64 @@
         }
         .slide-action.left {
             left: -100%;
-            background-color: #ef4444;
+            background-color: rgba(239, 68, 68, 0.8);
         }
         .slide-action.right {
             right: -100%;
-            background-color: #10b981;
+            background-color: rgba(16, 185, 129, 0.8);
+        }
+        .menu {
+            position: fixed;
+            top: 0;
+            left: -300px;
+            width: 300px;
+            height: 100%;
+            background-color: #2d3748;
+            transition: left 0.3s ease;
+            z-index: 1000;
+        }
+        .menu.open {
+            left: 0;
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 999;
         }
     </style>
 </head>
 <body class="text-white font-sans min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-md">
+    <div id="menu" class="menu p-4">
+        <h2 class="text-2xl font-bold mb-4">Menu</h2>
+        <ul>
+            <li class="mb-2"><a href="#" onclick="showPage('home')">Home</a></li>
+            <li class="mb-2"><a href="#" onclick="showPage('history')">History</a></li>
+        </ul>
+    </div>
+    <div id="overlay" class="overlay"></div>
+
+    <div class="container mx-auto px-4 py-8 max-w-md relative">
+        <button id="menuBtn" class="absolute top-4 left-4 text-2xl"><i class="fas fa-bars"></i></button>
         <h1 class="text-3xl font-bold mb-6 text-center">Workout Set Tracker</h1>
         
-        <div id="weeklyTotal" class="mb-8 p-4 bg-gray-800 rounded-2xl shadow-lg">
-            <h2 class="text-xl font-semibold mb-2">Weekly Total</h2>
-            <p id="totalSets" class="text-4xl font-bold"></p>
+        <div id="homePage">
+            <div id="weeklyTotal" class="mb-8 p-4 bg-gray-800 rounded-2xl shadow-lg bg-opacity-50 backdrop-filter backdrop-blur-lg">
+                <h2 class="text-xl font-semibold mb-2">Weekly Total</h2>
+                <p id="totalSets" class="text-4xl font-bold"></p>
+            </div>
+            
+            <div id="muscleGroups" class="space-y-4 mb-8"></div>
         </div>
-        
-        <div id="muscleGroups" class="space-y-4 mb-8"></div>
+
+        <div id="historyPage" class="hidden">
+            <h2 class="text-2xl font-bold mb-4">Workout History</h2>
+            <div id="historyContent"></div>
+        </div>
     </div>
 
     <script>
@@ -67,6 +110,7 @@
         ];
 
         let workoutData = JSON.parse(localStorage.getItem('workoutData')) || {};
+        let historyData = JSON.parse(localStorage.getItem('historyData')) || [];
 
         function getCurrentWeek() {
             const now = new Date();
@@ -77,15 +121,13 @@
 
         function createMuscleGroupElement(muscle) {
             const div = document.createElement('div');
-            div.className = 'muscle-group bg-gray-800 rounded-2xl shadow-lg overflow-hidden';
+            div.className = 'muscle-group bg-gray-800 rounded-2xl shadow-lg overflow-hidden bg-opacity-50 backdrop-filter backdrop-blur-lg';
             div.innerHTML = `
                 <div class="slide-container">
                     <div class="slide-action left">Remove Set</div>
-                    <div class="slide-content p-4">
-                        <div class="flex items-center justify-between">
-                            <h3 class="text-lg font-semibold">${muscle}</h3>
-                            <span id="${muscle}-total" class="text-3xl font-bold">0</span>
-                        </div>
+                    <div class="slide-content p-4 flex items-center justify-between">
+                        <h3 class="text-lg font-semibold">${muscle}</h3>
+                        <span id="${muscle}-total" class="text-3xl font-bold">0</span>
                     </div>
                     <div class="slide-action right">Add Set</div>
                 </div>
@@ -128,6 +170,37 @@
             }
         }
 
+        function saveWeeklyData() {
+            const currentWeek = getCurrentWeek();
+            if (workoutData[currentWeek]) {
+                historyData.push({
+                    week: currentWeek,
+                    data: {...workoutData[currentWeek]}
+                });
+                localStorage.setItem('historyData', JSON.stringify(historyData));
+                delete workoutData[currentWeek];
+                localStorage.setItem('workoutData', JSON.stringify(workoutData));
+            }
+        }
+
+        function updateHistory() {
+            const historyContent = document.getElementById('historyContent');
+            historyContent.innerHTML = '';
+            historyData.forEach(week => {
+                const weekDiv = document.createElement('div');
+                weekDiv.className = 'mb-4 p-4 bg-gray-800 rounded-lg';
+                weekDiv.innerHTML = `
+                    <h3 class="text-xl font-semibold mb-2">${week.week}</h3>
+                    <ul>
+                        ${Object.entries(week.data).map(([muscle, sets]) => `
+                            <li>${muscle}: ${sets} sets</li>
+                        `).join('')}
+                    </ul>
+                `;
+                historyContent.appendChild(weekDiv);
+            });
+        }
+
         const muscleGroupsContainer = document.getElementById('muscleGroups');
         muscleGroups.forEach((muscle) => {
             const element = createMuscleGroupElement(muscle);
@@ -163,17 +236,32 @@
             });
         });
 
-        // Add pull to refresh functionality
-        let startY;
-        document.addEventListener('touchstart', e => {
-            startY = e.touches[0].pageY;
-        });
-        document.addEventListener('touchmove', e => {
-            const y = e.touches[0].pageY;
-            if (y - startY > 100 && window.scrollY === 0) {
-                location.reload();
+        function showPage(page) {
+            document.getElementById('homePage').style.display = page === 'home' ? 'block' : 'none';
+            document.getElementById('historyPage').style.display = page === 'history' ? 'block' : 'none';
+            if (page === 'history') {
+                updateHistory();
             }
-        });
+            toggleMenu();
+        }
+
+        function toggleMenu() {
+            const menu = document.getElementById('menu');
+            const overlay = document.getElementById('overlay');
+            menu.classList.toggle('open');
+            overlay.style.display = menu.classList.contains('open') ? 'block' : 'none';
+        }
+
+        document.getElementById('menuBtn').addEventListener('click', toggleMenu);
+        document.getElementById('overlay').addEventListener('click', toggleMenu);
+
+        // Check if it's a new week and save data if necessary
+        const lastSavedWeek = localStorage.getItem('lastSavedWeek');
+        const currentWeek = getCurrentWeek();
+        if (lastSavedWeek !== currentWeek) {
+            saveWeeklyData();
+            localStorage.setItem('lastSavedWeek', currentWeek);
+        }
 
         updateUI();
     </script>
