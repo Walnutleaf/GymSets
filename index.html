@@ -6,9 +6,10 @@
     <title>Workout Set Tracker</title>
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/GymSets/service-worker.js');
+            navigator.serviceWorker.register('https://walnutleaf.github.io/GymSets/service-worker.js');
         }
     </script>
     <style>
@@ -19,26 +20,32 @@
             user-select: none;
             background-color: #121212;
         }
-        .switch {
-            width: 60px;
-            height: 30px;
-            background-color: #2d3748;
-            border-radius: 15px;
-            padding: 2px;
-            transition: all 0.3s ease;
+        .slide-container {
+            position: relative;
+            overflow: hidden;
         }
-        .switch-handle {
-            width: 26px;
-            height: 26px;
-            background-color: #ffffff;
-            border-radius: 50%;
+        .slide-content {
             transition: transform 0.3s ease;
         }
-        .switch.active {
-            background-color: #4299e1;
+        .slide-action {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
-        .switch.active .switch-handle {
-            transform: translateX(30px);
+        .slide-action.left {
+            left: -100%;
+            background-color: #ef4444;
+        }
+        .slide-action.right {
+            right: -100%;
+            background-color: #10b981;
         }
     </style>
 </head>
@@ -70,19 +77,18 @@
 
         function createMuscleGroupElement(muscle) {
             const div = document.createElement('div');
-            div.className = 'muscle-group bg-gray-800 p-4 rounded-2xl shadow-lg';
+            div.className = 'muscle-group bg-gray-800 rounded-2xl shadow-lg overflow-hidden';
             div.innerHTML = `
-                <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-lg font-semibold">${muscle}</h3>
-                    <span id="${muscle}-total" class="text-3xl font-bold">0</span>
-                </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm">Add Set</span>
-                    <div class="switch" id="${muscle}-switch">
-                        <div class="switch-handle"></div>
+                <div class="slide-container">
+                    <div class="slide-action left">Remove Set</div>
+                    <div class="slide-content p-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold">${muscle}</h3>
+                            <span id="${muscle}-total" class="text-3xl font-bold">0</span>
+                        </div>
                     </div>
+                    <div class="slide-action right">Add Set</div>
                 </div>
-                <p class="mt-2 text-sm">Sets: <span id="${muscle}-sets"></span></p>
             `;
             return div;
         }
@@ -93,12 +99,9 @@
 
             muscleGroups.forEach(muscle => {
                 const totalElement = document.getElementById(`${muscle}-total`);
-                const setsElement = document.getElementById(`${muscle}-sets`);
                 const total = (workoutData[currentWeek] && workoutData[currentWeek][muscle]) || 0;
-                const sets = (workoutData[currentWeek] && workoutData[currentWeek][`${muscle}-sets`]) || [];
                 
                 totalElement.textContent = total;
-                setsElement.textContent = sets.join(', ');
                 weekTotal += total;
             });
 
@@ -109,13 +112,20 @@
             const currentWeek = getCurrentWeek();
             if (!workoutData[currentWeek]) workoutData[currentWeek] = {};
             if (!workoutData[currentWeek][muscle]) workoutData[currentWeek][muscle] = 0;
-            if (!workoutData[currentWeek][`${muscle}-sets`]) workoutData[currentWeek][`${muscle}-sets`] = [];
             
             workoutData[currentWeek][muscle]++;
-            workoutData[currentWeek][`${muscle}-sets`].push(1);
             
             localStorage.setItem('workoutData', JSON.stringify(workoutData));
             updateUI();
+        }
+
+        function removeSet(muscle) {
+            const currentWeek = getCurrentWeek();
+            if (workoutData[currentWeek] && workoutData[currentWeek][muscle] > 0) {
+                workoutData[currentWeek][muscle]--;
+                localStorage.setItem('workoutData', JSON.stringify(workoutData));
+                updateUI();
+            }
         }
 
         const muscleGroupsContainer = document.getElementById('muscleGroups');
@@ -123,13 +133,33 @@
             const element = createMuscleGroupElement(muscle);
             muscleGroupsContainer.appendChild(element);
 
-            const switchElement = element.querySelector('.switch');
-            switchElement.addEventListener('click', () => {
-                switchElement.classList.add('active');
-                addSet(muscle);
-                setTimeout(() => {
-                    switchElement.classList.remove('active');
-                }, 300);
+            const slideContainer = element.querySelector('.slide-container');
+            const slideContent = element.querySelector('.slide-content');
+            const leftAction = element.querySelector('.slide-action.left');
+            const rightAction = element.querySelector('.slide-action.right');
+
+            const hammer = new Hammer(slideContainer);
+
+            hammer.on('pan', function(ev) {
+                const pan = Math.min(Math.max(ev.deltaX, -100), 100);
+                slideContent.style.transform = `translateX(${pan}px)`;
+                
+                if (pan < 0) {
+                    leftAction.style.opacity = Math.abs(pan) / 100;
+                } else {
+                    rightAction.style.opacity = pan / 100;
+                }
+                
+                if (ev.isFinal) {
+                    if (pan < -50) {
+                        removeSet(muscle);
+                    } else if (pan > 50) {
+                        addSet(muscle);
+                    }
+                    slideContent.style.transform = '';
+                    leftAction.style.opacity = 0;
+                    rightAction.style.opacity = 0;
+                }
             });
         });
 
